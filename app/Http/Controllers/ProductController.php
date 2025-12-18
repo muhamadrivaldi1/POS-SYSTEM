@@ -255,8 +255,10 @@ class ProductController extends Controller
     public function searchByBarcode(Request $request)
     {
         $barcode = $request->barcode;
+        $warehouseId = $request->warehouse_id;  // tambah ini
+        $priceTierId = $request->price_tier_id; // tambah ini
 
-        $productBarcode = ProductBarcode::with(['product.prices', 'product.category'])
+        $productBarcode = ProductBarcode::with(['product.category', 'product.prices'])
             ->where('barcode', $barcode)
             ->first();
 
@@ -276,6 +278,16 @@ class ProductController extends Controller
             ], 400);
         }
 
+        // ambil stok sesuai gudang
+        $warehouseStock = WarehouseStock::where('product_id', $product->id)
+            ->where('warehouse_id', $warehouseId)
+            ->first();
+        $stock = $warehouseStock ? $warehouseStock->stock : 0;
+
+        // ambil harga sesuai price tier
+        $price = $product->prices()->where('price_tier_id', $priceTierId)->first();
+        $priceValue = $price ? $price->price : $product->base_price;
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -283,8 +295,8 @@ class ProductController extends Controller
                 'code' => $product->code,
                 'name' => $product->name,
                 'category' => $product->category->name,
-                'price' => $product->base_price,
-                'stock' => $product->stock,
+                'price' => $priceValue,
+                'stock' => $stock,
                 'unit' => $product->unit,
                 'barcode' => $barcode,
                 'qty_per_package' => $productBarcode->qty_per_package,
@@ -292,6 +304,7 @@ class ProductController extends Controller
             ]
         ]);
     }
+
 
     public function addBarcode(Request $request, Product $product)
     {

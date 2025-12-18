@@ -24,4 +24,10 @@ class WarehouseStock extends Model
     {
         return $this->belongsTo(Product::class);
     }
+    public static function getAvailableStock($productId, $warehouseId)
+    {
+        return self::where('product_id', $productId)
+            ->where('warehouse_id', $warehouseId)
+            ->sum('stock');
+    }
 }

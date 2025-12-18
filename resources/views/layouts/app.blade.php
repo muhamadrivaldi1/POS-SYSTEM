@@ -136,7 +136,7 @@
     
     @stack('styles')
 </head>
-<body>
+<body class="@yield('body-class')">
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">

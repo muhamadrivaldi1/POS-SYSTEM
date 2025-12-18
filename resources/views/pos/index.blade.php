@@ -2,6 +2,7 @@
 
 @section('title', 'Point of Sale')
 @section('page-title', 'Point of Sale (POS)')
+@section('body-class', 'page-pos')
 
 @push('styles')
 <style>
@@ -214,6 +215,168 @@
 @endsection
 
 @push('scripts')
+<script>
+document.addEventListener('keydown', function (e) {
+
+    // hanya aktif di halaman POS
+    if (!document.body.classList.contains('page-pos')) return;
+
+    // F2 → fokus ke barcode
+    if (e.key === 'F2') {
+        e.preventDefault();
+        document.getElementById('barcodeInput')?.focus();
+        return;
+    }
+
+    // F4 → fokus ke pencarian manual
+    if (e.key === 'F4') {
+        e.preventDefault();
+        document.getElementById('searchInput')?.focus();
+        return;
+    }
+
+    // F6 → Tunai
+    if (e.key === 'F6') {
+        e.preventDefault();
+        setPaymentMethod('cash');
+        return;
+    }
+
+    // F7 → Kartu
+    if (e.key === 'F7') {
+        e.preventDefault();
+        setPaymentMethod('card');
+        return;
+    }
+
+    // F9 → E-Wallet
+    if (e.key === 'F9') {
+        e.preventDefault();
+        setPaymentMethod('ewallet');
+        return;
+    }
+
+    // F10 → Transfer
+    if (e.key === 'F10') {
+        e.preventDefault();
+        setPaymentMethod('transfer');
+        return;
+    }
+
+    // F8 → bayar
+    if (e.key === 'F8') {
+        e.preventDefault();
+        document.getElementById('btnPay')?.click();
+        return;
+    }
+
+    // ESC → clear keranjang
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        document.getElementById('btnClear')?.click();
+        return;
+    }
+});
+
+// helper set metode pembayaran
+function setPaymentMethod(method) {
+    const select = document.getElementById('paymentMethod');
+    if (!select) return;
+
+    select.value = method;
+    select.dispatchEvent(new Event('change'));
+
+    // jika tunai → fokus ke input bayar
+    if (method === 'cash') {
+        setTimeout(() => {
+            document.getElementById('paymentAmount')?.focus();
+        }, 100);
+    }
+}
+</script>
+
+
+<script>
+let selectedCartIndex = -1;
+
+document.addEventListener('keydown', function (e) {
+
+    // aktif hanya di halaman POS
+    if (!document.body.classList.contains('page-pos')) return;
+
+    // pastikan cart sudah ada
+    if (typeof cart === 'undefined') return;
+    if (cart.length === 0) return;
+
+    // jangan ganggu saat fokus input qty
+    const ignoreIds = ['barcodeInput', 'searchInput', 'paymentAmount'];
+    if (ignoreIds.includes(document.activeElement.id)) return;
+
+    // ⬆️ pindah ke item atas
+    if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedCartIndex = Math.max(0, selectedCartIndex - 1);
+        highlightCartRow();
+        return;
+    }
+
+    // ⬇️ pindah ke item bawah
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedCartIndex = Math.min(cart.length - 1, selectedCartIndex + 1);
+        highlightCartRow();
+        return;
+    }
+
+    // ➕ tambah qty (+, =, numpad +)
+    if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+        e.preventDefault();
+        if (selectedCartIndex === -1) selectedCartIndex = 0;
+        updateQty(selectedCartIndex, 1);
+        highlightCartRow();
+        return;
+    }
+
+    // ➖ kurangi qty (-, numpad -)
+    if (e.key === '-' || e.code === 'NumpadSubtract') {
+        e.preventDefault();
+        if (selectedCartIndex === -1) selectedCartIndex = 0;
+        updateQty(selectedCartIndex, -1);
+        highlightCartRow();
+        return;
+    }
+
+    // 🗑️ hapus item
+    if (e.key === 'Delete') {
+        e.preventDefault();
+        if (selectedCartIndex >= 0) {
+            removeItem(selectedCartIndex);
+            selectedCartIndex = Math.min(selectedCartIndex, cart.length - 1);
+            highlightCartRow();
+        }
+        return;
+    }
+
+    // ENTER → fokus ke pembayaran
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        $('#paymentAmount').focus();
+    }
+});
+
+// highlight baris cart
+function highlightCartRow() {
+    $('#cartItems tr').removeClass('table-primary');
+
+    if (selectedCartIndex >= 0) {
+        $('#cartItems tr')
+            .eq(selectedCartIndex)
+            .addClass('table-primary');
+    }
+}
+</script>
+
+
 <script>
 let cart = [];
 let subtotal = 0;

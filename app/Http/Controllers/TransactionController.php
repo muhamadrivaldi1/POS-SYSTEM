@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
@@ -57,7 +58,7 @@ class TransactionController extends Controller
     {
         $priceTiers = PriceTier::where('status', 'active')->orderBy('priority')->get();
         $warehouses = Warehouse::where('status', 'active')->get();
-        
+
         // Check if user has open cash session
         $openSession = CashSession::where('user_id', Auth::id())
             ->where('status', 'open')
@@ -115,7 +116,7 @@ class TransactionController extends Controller
             // Validate and apply voucher
             if ($request->filled('voucher_code')) {
                 $voucher = Voucher::where('code', $request->voucher_code)->first();
-                
+
                 if (!$voucher) {
                     DB::rollback();
                     return response()->json([
@@ -134,7 +135,7 @@ class TransactionController extends Controller
 
                 $voucherDiscount = $voucher->calculateDiscount($subtotal);
                 $discountAmount += $voucherDiscount;
-                
+
                 // Update voucher usage
                 $voucher->increment('used_count');
             }
@@ -156,8 +157,8 @@ class TransactionController extends Controller
                 ], 400);
             }
 
-            $changeAmount = $request->payment_method === 'cash' 
-                ? $request->payment_amount - $total 
+            $changeAmount = $request->payment_method === 'cash'
+                ? $request->payment_amount - $total
                 : 0;
 
             // Create transaction
@@ -186,8 +187,8 @@ class TransactionController extends Controller
                 $product = Product::find($item['product_id']);
 
                 // Validate stock
-                $currentStock = $request->warehouse_id 
-                    ? $product->getStockByWarehouse($request->warehouse_id)
+                $currentStock = $request->warehouse_id
+                    ? WarehouseStock::getAvailableStock($product->id, $request->warehouse_id)
                     : $product->stock;
 
                 if ($currentStock < $item['qty']) {
@@ -197,6 +198,7 @@ class TransactionController extends Controller
                         'message' => "Stok {$product->name} tidak mencukupi"
                     ], 400);
                 }
+
 
                 // Create detail
                 TransactionDetail::create([
@@ -211,38 +213,43 @@ class TransactionController extends Controller
 
                 // Update stock
                 if ($request->warehouse_id) {
-                    $warehouseStock = WarehouseStock::where('warehouse_id', $request->warehouse_id)
+
+                    $stocks = WarehouseStock::where('warehouse_id', $request->warehouse_id)
                         ->where('product_id', $product->id)
-                        ->first();
-                    
-                    if (!$warehouseStock) {
-                        DB::rollback();
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Stok produk {$product->name} tidak ditemukan di gudang"
-                        ], 400);
+                        ->where('stock', '>', 0)
+                        ->orderBy('created_at') // FIFO
+                        ->get();
+
+                    $qtyToReduce = $item['qty'];
+
+                    foreach ($stocks as $stock) {
+                        if ($qtyToReduce <= 0) break;
+
+                        $reduce = min($stock->stock, $qtyToReduce);
+                        $oldStock = $stock->stock;
+
+                        $stock->decrement('stock', $reduce);
+
+                        StockMutation::create([
+                            'product_id' => $product->id,
+                            'warehouse_id' => $request->warehouse_id,
+                            'type' => 'out',
+                            'qty' => $reduce,
+                            'stock_before' => $oldStock,
+                            'stock_after' => $oldStock - $reduce,
+                            'reference_type' => 'Transaction',
+                            'reference_id' => $transaction->id,
+                            'notes' => 'Penjualan: ' . $transaction->transaction_number,
+                            'user_id' => Auth::id(),
+                        ]);
+
+                        $qtyToReduce -= $reduce;
                     }
-                    
-                    $oldStock = $warehouseStock->stock;
-                    $warehouseStock->decrement('stock', $item['qty']);
-                    
-                    // Record stock mutation
-                    StockMutation::create([
-                        'product_id' => $product->id,
-                        'warehouse_id' => $request->warehouse_id,
-                        'type' => 'out',
-                        'qty' => $item['qty'],
-                        'stock_before' => $oldStock,
-                        'stock_after' => $oldStock - $item['qty'],
-                        'reference_type' => 'Transaction',
-                        'reference_id' => $transaction->id,
-                        'notes' => 'Penjualan: ' . $transaction->transaction_number,
-                        'user_id' => Auth::id(),
-                    ]);
                 } else {
+                    // stok global
                     $oldStock = $product->stock;
                     $product->decrement('stock', $item['qty']);
-                    
+
                     StockMutation::create([
                         'product_id' => $product->id,
                         'type' => 'out',
@@ -270,7 +277,6 @@ class TransactionController extends Controller
                     'change_amount' => $changeAmount,
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
@@ -303,16 +309,16 @@ class TransactionController extends Controller
             // Restore stock
             foreach ($transaction->details as $detail) {
                 $product = $detail->product;
-                
+
                 if ($transaction->warehouse_id) {
                     $warehouseStock = WarehouseStock::where('warehouse_id', $transaction->warehouse_id)
                         ->where('product_id', $product->id)
                         ->first();
-                    
+
                     if ($warehouseStock) {
                         $oldStock = $warehouseStock->stock;
                         $warehouseStock->increment('stock', $detail->qty);
-                        
+
                         StockMutation::create([
                             'product_id' => $product->id,
                             'warehouse_id' => $transaction->warehouse_id,
@@ -329,7 +335,7 @@ class TransactionController extends Controller
                 } else {
                     $oldStock = $product->stock;
                     $product->increment('stock', $detail->qty);
-                    
+
                     StockMutation::create([
                         'product_id' => $product->id,
                         'type' => 'in',
@@ -360,7 +366,6 @@ class TransactionController extends Controller
                 'success' => true,
                 'message' => 'Transaksi berhasil dibatalkan'
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
@@ -373,7 +378,7 @@ class TransactionController extends Controller
     public function printReceipt(Transaction $transaction)
     {
         $transaction->load(['details.product', 'user', 'warehouse']);
-        
+
         $pdf = Pdf::loadView('transactions.receipt', compact('transaction'));
         return $pdf->stream('receipt-' . $transaction->transaction_number . '.pdf');
     }
