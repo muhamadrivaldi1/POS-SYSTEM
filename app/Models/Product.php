@@ -9,7 +9,7 @@ class Product extends Model
 {
     use HasFactory;
 
-     protected $fillable = [
+    protected $fillable = [
         'code',
         'name',
         'category_id',
@@ -48,19 +48,20 @@ class Product extends Model
     }
 
     // =========================
-    // ✅ FIX ERROR DI SINI
+    // GET STOCK SESUAI GUDANG
     // =========================
     public function getStockByWarehouse(?int $warehouseId = null): int
     {
-        // Jika pakai gudang
+        // Ambil stok dari warehouse_stocks jika warehouse_id diberikan
         if ($warehouseId) {
-            return (int) $this->warehouseStocks()
+            $stock = $this->warehouseStocks()
                 ->where('warehouse_id', $warehouseId)
-                ->value('stock') ?? 0;
+                ->value('stock');
+
+            return $stock !== null ? (int) $stock : 0;
         }
 
-        // Jika tidak pakai gudang (stok global)
+        // Jika tidak pakai gudang, kembalikan stok global
         return (int) $this->stock;
     }
 }
-

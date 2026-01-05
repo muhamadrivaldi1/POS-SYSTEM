@@ -187,19 +187,45 @@ class TransactionController extends Controller
                 $product = Product::find($item['product_id']);
 
                 // Validate stock
-                $currentStock = $request->warehouse_id
-                    ? WarehouseStock::getAvailableStock($product->id, $request->warehouse_id)
-                    : $product->stock;
+                // ===============================
+                // VALIDASI STOK (FIXED & AMAN)
+                // ===============================
+                $availableStocks = WarehouseStock::with('warehouse')
+                    ->where('product_id', $product->id)
+                    ->where('stock', '>', 0)
+                    ->lockForUpdate()
+                    ->get();
 
-                if ($currentStock < $item['qty']) {
-                    DB::rollback();
+                if ($availableStocks->isEmpty()) {
+                    DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => "Stok {$product->name} tidak mencukupi"
+                        'message' => "❌ Stok {$product->name} habis di semua gudang."
                     ], 400);
                 }
 
+                if ($request->warehouse_id) {
 
+                    $currentStock = $availableStocks
+                        ->where('warehouse_id', $request->warehouse_id)
+                        ->sum('stock');
+
+                    if ($currentStock < $item['qty']) {
+
+                        $warehouseList = $availableStocks->map(function ($stock) {
+                            return "• {$stock->warehouse->name}: {$stock->stock}";
+                        })->implode("\n");
+
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' =>
+                            "❌ Stok {$product->name} di gudang ini tidak mencukupi.\n\n" .
+                                "📦 Stok tersedia di gudang lain:\n" .
+                                $warehouseList
+                        ], 400);
+                    }
+                }
                 // Create detail
                 TransactionDetail::create([
                     'transaction_id' => $transaction->id,
@@ -285,6 +311,7 @@ class TransactionController extends Controller
             ], 500);
         }
     }
+
 
     public function cancel(Transaction $transaction)
     {
