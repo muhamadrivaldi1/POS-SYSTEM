@@ -2,19 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ProductBarcode extends Model
 {
-    use HasFactory;
+    protected $table = 'product_barcodes';
 
     protected $fillable = [
-        'product_id', 'barcode', 'packaging_type', 'qty_per_package'
-    ];
-
-    protected $casts = [
-        'qty_per_package' => 'integer',
+        'product_id',
+        'barcode',
+        'packaging_type',
+        'qty_per_package',
     ];
 
     public function product()

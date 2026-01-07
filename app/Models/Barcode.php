@@ -5,24 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class WarehouseStock extends Model
+class Barcode extends Model
 {
+    use HasFactory;
     use HasFactory;
 
     protected $fillable = [
-        'warehouse_id',
         'product_id',
-        'stock'
+        'barcode',
     ];
-
-    protected $casts = [
-        'stock' => 'integer',
-    ];
-
-    public function warehouse()
-    {
-        return $this->belongsTo(Warehouse::class);
-    }
 
     public function product()
     {

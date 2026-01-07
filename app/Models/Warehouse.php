@@ -10,9 +10,24 @@ class Warehouse extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['name', 'address', 'phone', 'status'];
+    protected $table = 'warehouses';
 
-    public function stocks()
+    protected $fillable = [
+        'name',
+        'address',
+        'phone',
+        'status',
+    ];
+
+    protected $casts = [
+        'status' => 'string',
+    ];
+
+    /* =====================
+     | RELATIONS
+     ===================== */
+
+    public function warehouseStocks()
     {
         return $this->hasMany(WarehouseStock::class);
     }
@@ -25,5 +40,14 @@ class Warehouse extends Model
     public function purchases()
     {
         return $this->hasMany(Purchase::class);
+    }
+
+    /* =====================
+     | HELPERS
+     ===================== */
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
     }
 }

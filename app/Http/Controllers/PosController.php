@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\Warehouse;
 use App\Models\PriceTier;
 use App\Models\CashSession;
 use App\Models\Product;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Barcode;    
 
 class PosController extends Controller
 {
@@ -17,7 +19,7 @@ class PosController extends Controller
     public function index()
     {
         $warehouses = Warehouse::where('status', 'active')
-            ->orderByRaw('FIELD(name, "Gudang Cabang", "Gudang Utama")')
+            ->orderBy('name')
             ->get();
 
         $priceTiers = PriceTier::where('status', 'active')->get();
@@ -30,28 +32,49 @@ class PosController extends Controller
         if (Auth::user()->role === 'kasir' && !$openSession) {
             return redirect()
                 ->route('cash-sessions.create')
-                ->with('warning', 'Silakan buka sesi kas terlebih dahulu sebelum menggunakan POS');
+                ->with('warning', 'Silakan buka sesi kas terlebih dahulu');
         }
 
-        return view('pos.index', compact('warehouses', 'priceTiers', 'openSession'));
+        return view('pos.index', compact(
+            'warehouses',
+            'priceTiers',
+            'openSession'
+        ));
     }
 
     /**
-     * Scan / Cari produk via barcode
+     * 🔍 Cari / Scan Barcode
      */
     public function searchByBarcode(Request $request)
     {
-        $warehouse_id = $request->warehouse_id;
         $barcode = $request->barcode;
 
-        $product = Product::where('code', $barcode)->first();
+        $gudangUtamaId = Warehouse::where('name', 'Gudang Utama')->value('id');
+        $tokoId = Warehouse::where('name', 'Toko')->value('id'); // kalau ada
+
+        $product = DB::table('products as p')
+            ->leftJoin('warehouse_stocks as ws_gudang', function ($join) use ($gudangUtamaId) {
+                $join->on('p.id', '=', 'ws_gudang.product_id')
+                    ->where('ws_gudang.warehouse_id', $gudangUtamaId);
+            })
+            ->leftJoin('warehouse_stocks as ws_toko', function ($join) use ($tokoId) {
+                $join->on('p.id', '=', 'ws_toko.product_id')
+                    ->where('ws_toko.warehouse_id', $tokoId);
+            })
+            ->where('p.code', $barcode)
+            ->select(
+                'p.id',
+                'p.code',
+                'p.name',
+                'p.base_price',
+                DB::raw('COALESCE(ws_gudang.stock, 0) as stock_gudang'),
+                DB::raw('COALESCE(ws_toko.stock, 0) as stock_toko')
+            )
+            ->first();
 
         if (!$product) {
-            return response()->json(['success' => false, 'message' => 'Produk tidak ditemukan']);
+            return response()->json(['success' => false]);
         }
-
-        // ambil stok sesuai gudang menggunakan helper
-        $productStock = $product->getStockByWarehouse($warehouse_id);
 
         return response()->json([
             'success' => true,
@@ -60,35 +83,46 @@ class PosController extends Controller
                 'code' => $product->code,
                 'name' => $product->name,
                 'base_price' => $product->base_price,
-                'stock' => $productStock,
+                'gudang' => (int) $product->stock_gudang,
+                'toko' => (int) $product->stock_toko,
+                'stock' => (int) $product->stock_toko
             ]
         ]);
     }
 
     /**
-     * Cari produk berdasarkan nama / kode
+     * 🔍 Cari berdasarkan nama / kode
      */
     public function searchByName(Request $request)
     {
-        $warehouse_id = $request->warehouse_id;
         $keyword = $request->keyword;
 
-        $products = Product::where('name', 'like', "%$keyword%")
-            ->orWhere('code', 'like', "%$keyword%")
-            ->get()
-            ->map(function ($product) use ($warehouse_id) {
-                // Ambil stok dari warehouse_stocks sesuai warehouse_id
-                $productStock = $product->getStockByWarehouse($warehouse_id);
+        $gudangUtamaId = Warehouse::where('name', 'Gudang Utama')->value('id');
+        $tokoId = Warehouse::where('name', 'Gudang Cabang')->value('id'); // SESUAI DB
 
-                return [
-                    'id' => $product->id,
-                    'code' => $product->code,
-                    'name' => $product->name,
-                    'base_price' => $product->base_price,
-                    'stock' => $productStock,
-                ];
-            });
+        $products = DB::table('products as p')
+            ->leftJoin('warehouse_stocks as ws_gudang', function ($join) use ($gudangUtamaId) {
+                $join->on('p.id', '=', 'ws_gudang.product_id')
+                    ->where('ws_gudang.warehouse_id', $gudangUtamaId);
+            })
+            ->leftJoin('warehouse_stocks as ws_toko', function ($join) use ($tokoId) {
+                $join->on('p.id', '=', 'ws_toko.product_id')
+                    ->where('ws_toko.warehouse_id', $tokoId);
+            })
+            ->where('p.name', 'like', "%{$keyword}%")
+            ->orWhere('p.code', 'like', "%{$keyword}%")
+            ->select(
+                'p.id',
+                'p.name',
+                'p.base_price',
+                DB::raw('COALESCE(ws_gudang.stock, 0) as stock_main'),
+                DB::raw('COALESCE(ws_toko.stock, 0) as stock_store')
+            )
+            ->get();
 
-        return response()->json($products);
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
     }
 }

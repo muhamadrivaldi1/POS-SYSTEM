@@ -237,20 +237,53 @@ function searchByBarcode(barcode){
 }
 
 function searchByName(keyword){
-    $.get('{{ route("products.search.name") }}', { keyword, warehouse_id: $('#warehouseSelect').val(), price_tier_id: $('#priceTierSelect').val() }, function(res){
-        if(res.length>0){
-            let html = '';
-            res.forEach(p=>{
-                html += `<a href="#" class="list-group-item product-item" data-product='${JSON.stringify(p)}'>${p.name} - Rp ${formatNumber(p.base_price)}</a>`;
-            });
-            $('#searchResults').html(html);
-            $('.product-item').click(function(e){
-                e.preventDefault();
-                let p = $(this).data('product');
-                addToCart(p);
-                $('#searchInput,#searchResults').val('').html('');
-            });
-        } else { $('#searchResults').html('<div class="list-group-item text-muted">Produk tidak ditemukan</div>'); }
+    $.get("{{ route('pos.products.search.name') }}", {
+        keyword: keyword,
+        warehouse_id: $('#warehouseSelect').val()
+    }, function(res){
+
+        if(!res.success || res.data.length === 0){
+            $('#searchResults').html(
+                '<div class="list-group-item text-muted">Produk tidak ditemukan</div>'
+            );
+            return;
+        }
+
+        productsCache = res.data;
+
+        let html = '';
+        res.data.forEach((p, index) => {
+            html += `
+            <a href="#" class="list-group-item product-item mb-2"
+               data-index="${index}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="product-name fw-semibold">${p.name}</div>
+                        <div class="product-price text-muted">
+                            Rp ${formatNumber(p.base_price)}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-primary badge-stock mb-1">
+                            Gudang: ${p.stock_main}
+                        </span><br>
+                        <span class="badge ${p.stock_store > 0 ? 'bg-success' : 'bg-danger'} badge-stock">
+                            Toko: ${p.stock_store}
+                        </span>
+                    </div>
+                </div>
+            </a>`;
+        });
+
+        $('#searchResults').html(html);
+
+        $('.product-item').click(function(e){
+            e.preventDefault();
+            let index = $(this).data('index');
+            addToCart(productsCache[index]);
+            $('#searchResults').html('');
+            $('#searchInput').val('');
+        });
     });
 }
 

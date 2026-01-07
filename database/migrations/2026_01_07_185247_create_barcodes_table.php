@@ -13,14 +13,13 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('warehouse_stocks', function (Blueprint $table) {
+        Schema::create('barcodes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
-            $table->integer('qty')->default(0);
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->cascadeOnDelete();
+            $table->string('barcode')->unique();
             $table->timestamps();
-
-            $table->unique(['product_id', 'warehouse_id']);
         });
     }
 
@@ -31,6 +30,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('warehouse_stocks');
+        Schema::dropIfExists('barcodes');
     }
 };

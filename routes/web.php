@@ -79,6 +79,13 @@ Route::middleware(['auth'])->group(function () {
 
     // POS & Transactions (All Authenticated Users)
     Route::get('/pos', [TransactionController::class, 'pos'])->name('pos.index');
+    // POS Product Search (WAJIB PosController)
+Route::get('/pos/products/search/name', [PosController::class, 'searchByName'])
+    ->name('pos.products.search.name');
+
+Route::get('/pos/products/search/barcode', [PosController::class, 'searchByBarcode'])
+    ->name('pos.products.search.barcode');
+
     Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
     Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
