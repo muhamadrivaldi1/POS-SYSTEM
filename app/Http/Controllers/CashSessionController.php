@@ -57,7 +57,7 @@ class CashSessionController extends Controller
 
         $session = CashSession::create([
             'user_id' => auth()->id(),
-            'opening_balance' => $request->opening_balance,
+            'opening_cash' => $request->opening_balance,
             'opened_at' => now(),
             'status' => 'open',
         ]);

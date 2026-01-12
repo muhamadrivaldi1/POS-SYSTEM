@@ -15,15 +15,14 @@ return new class extends Migration
     {
         Schema::create('cash_sessions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained();
-            $table->decimal('opening_balance', 15, 2)->default(0);
-            $table->decimal('closing_balance', 15, 2)->default(0);
-            $table->decimal('expected_balance', 15, 2)->default(0);
-            $table->decimal('difference', 15, 2)->default(0);
-            $table->dateTime('opened_at');
-            $table->dateTime('closed_at')->nullable();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->decimal('opening_cash', 15, 2)->default(0);
+            $table->decimal('closing_cash', 15, 2)->nullable();
+            $table->decimal('expected_cash', 15, 2)->nullable();
+            $table->decimal('difference', 15, 2)->nullable();
             $table->enum('status', ['open', 'closed'])->default('open');
-            $table->text('notes')->nullable();
+            $table->timestamp('opened_at')->nullable();
+            $table->timestamp('closed_at')->nullable();
             $table->timestamps();
         });
     }

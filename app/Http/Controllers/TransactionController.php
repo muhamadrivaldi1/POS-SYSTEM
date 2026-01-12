@@ -79,7 +79,7 @@ class TransactionController extends Controller
         $validator = Validator::make($request->all(), [
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
-            'items.*.qty' => 'required|integer|min:1',
+            'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'price_tier_id' => 'nullable|exists:price_tiers,id',
             'warehouse_id' => 'nullable|exists:warehouses,id',
@@ -104,7 +104,7 @@ class TransactionController extends Controller
             // Calculate subtotal
             $subtotal = 0;
             foreach ($request->items as $item) {
-                $subtotal += $item['qty'] * $item['price'];
+                $subtotal += $item['quantity'] * $item['price'];
             }
 
             // Calculate discount
@@ -210,7 +210,7 @@ class TransactionController extends Controller
                         ->where('warehouse_id', $request->warehouse_id)
                         ->sum('stock');
 
-                    if ($currentStock < $item['qty']) {
+                    if ($currentStock < $item['quantity']) {
 
                         $warehouseList = $availableStocks->map(function ($stock) {
                             return "• {$stock->warehouse->name}: {$stock->stock}";
@@ -231,9 +231,9 @@ class TransactionController extends Controller
                     'transaction_id' => $transaction->id,
                     'product_id' => $product->id,
                     'product_name' => $product->name,
-                    'qty' => $item['qty'],
+                    'quantity' => $item['quantity'],
                     'price' => $item['price'],
-                    'subtotal' => $item['qty'] * $item['price'],
+                    'subtotal' => $item['quantity'] * $item['price'],
                     'discount' => $item['discount'] ?? 0,
                 ]);
 
@@ -246,7 +246,7 @@ class TransactionController extends Controller
                         ->orderBy('created_at') // FIFO
                         ->get();
 
-                    $qtyToReduce = $item['qty'];
+                    $qtyToReduce = $item['quantity'];
 
                     foreach ($stocks as $stock) {
                         if ($qtyToReduce <= 0) break;
@@ -260,7 +260,7 @@ class TransactionController extends Controller
                             'product_id' => $product->id,
                             'warehouse_id' => $request->warehouse_id,
                             'type' => 'out',
-                            'qty' => $reduce,
+                            'quantity' => $reduce,
                             'stock_before' => $oldStock,
                             'stock_after' => $oldStock - $reduce,
                             'reference_type' => 'Transaction',
@@ -274,14 +274,14 @@ class TransactionController extends Controller
                 } else {
                     // stok global
                     $oldStock = $product->stock;
-                    $product->decrement('stock', $item['qty']);
+                    $product->decrement('stock', $item['quantity']);
 
                     StockMutation::create([
                         'product_id' => $product->id,
                         'type' => 'out',
-                        'qty' => $item['qty'],
+                        'quantity' => $item['quantity'],
                         'stock_before' => $oldStock,
-                        'stock_after' => $oldStock - $item['qty'],
+                        'stock_after' => $oldStock - $item['quantity'],
                         'reference_type' => 'Transaction',
                         'reference_id' => $transaction->id,
                         'notes' => 'Penjualan: ' . $transaction->transaction_number,
@@ -344,15 +344,15 @@ class TransactionController extends Controller
 
                     if ($warehouseStock) {
                         $oldStock = $warehouseStock->stock;
-                        $warehouseStock->increment('stock', $detail->qty);
+                        $warehouseStock->increment('stock', $detail->quantity);
 
                         StockMutation::create([
                             'product_id' => $product->id,
                             'warehouse_id' => $transaction->warehouse_id,
                             'type' => 'in',
-                            'qty' => $detail->qty,
+                            'quantity' => $detail->quantity,
                             'stock_before' => $oldStock,
-                            'stock_after' => $oldStock + $detail->qty,
+                            'stock_after' => $oldStock + $detail->quantity,
                             'reference_type' => 'Transaction',
                             'reference_id' => $transaction->id,
                             'notes' => 'Pembatalan transaksi: ' . $transaction->transaction_number,
@@ -361,14 +361,14 @@ class TransactionController extends Controller
                     }
                 } else {
                     $oldStock = $product->stock;
-                    $product->increment('stock', $detail->qty);
+                    $product->increment('stock', $detail->quantity);
 
                     StockMutation::create([
                         'product_id' => $product->id,
                         'type' => 'in',
-                        'qty' => $detail->qty,
+                        'quantity' => $detail->quantity,
                         'stock_before' => $oldStock,
-                        'stock_after' => $oldStock + $detail->qty,
+                        'stock_after' => $oldStock + $detail->quantity,
                         'reference_type' => 'Transaction',
                         'reference_id' => $transaction->id,
                         'notes' => 'Pembatalan transaksi: ' . $transaction->transaction_number,

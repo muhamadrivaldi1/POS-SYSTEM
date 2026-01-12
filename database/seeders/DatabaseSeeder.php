@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             PriceTierSeeder::class,
             WarehouseSeeder::class,
+            ProductSeeder::class,
         ]);
     }
 }
@@ -217,7 +218,7 @@ class ProductSeeder extends Seeder
             WarehouseStock::create([
                 'warehouse_id' => 1,
                 'product_id' => $product->id,
-                'stock' => $product->stock,
+                'quantity' => 50,
             ]);
         }
     }

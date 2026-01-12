@@ -138,9 +138,14 @@ body.page-pos { background: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
 @push('scripts')
 <script>
 let cart = [];
+let productsCache = [];
 
-function formatNumber(num){ return new Intl.NumberFormat('id-ID').format(num); }
+// Format angka jadi Rp 100.000
+function formatNumber(num){
+    return new Intl.NumberFormat('id-ID').format(num);
+}
 
+// ======================= CART UPDATE =======================
 function updateCart(){
     let tbody = $('#cartItems');
     if(cart.length === 0){
@@ -152,13 +157,13 @@ function updateCart(){
                         <td><strong>${item.name}</strong><br><small class="text-muted">Rp ${formatNumber(item.price)}</small></td>
                         <td>
                             <div class="input-group input-group-sm">
-                                <button class="btn btn-outline-secondary" onclick="changeQty(${i},-1)">-</button>
-                                <input type="number" class="form-control text-center" value="${item.qty}" min="1" max="${item.stock}" onchange="setQty(${i}, this.value)">
-                                <button class="btn btn-outline-secondary" onclick="changeQty(${i},1)">+</button>
+                                <button class="btn btn-outline-secondary" onclick="changeQuantity(${i},-1)">-</button>
+                                <input type="number" class="form-control text-center" value="${item.quantity}" min="1" max="${item.stock}" onchange="setQuantity(${i}, this.value)">
+                                <button class="btn btn-outline-secondary" onclick="changeQuantity(${i},1)">+</button>
                             </div>
                         </td>
                         <td class="text-end">Rp ${formatNumber(item.price)}</td>
-                        <td class="text-end">Rp ${formatNumber(item.qty*item.price)}</td>
+                        <td class="text-end">Rp ${formatNumber(item.quantity*item.price)}</td>
                         <td><button class="btn btn-sm btn-danger" onclick="removeItem(${i})"><i class="fas fa-trash"></i></button></td>
                      </tr>`;
         });
@@ -167,26 +172,29 @@ function updateCart(){
     calculateTotals();
 }
 
-function changeQty(i, delta){
+// ======================= QUANTITY HANDLING =======================
+function changeQuantity(i, delta){
     let item = cart[i];
-    let newQty = item.qty + delta;
-    if(newQty > 0 && newQty <= item.stock){ item.qty = newQty; updateCart(); }
+    let newQty = item.quantity + delta;
+    if(newQty > 0 && newQty <= item.stock){ item.quantity = newQty; updateCart(); }
     else if(newQty>item.stock) alert('Stok tidak mencukupi');
 }
 
-function setQty(i, val){
-    let qty = parseInt(val);
-    if(qty > 0 && qty <= cart[i].stock){ cart[i].qty = qty; updateCart(); }
+function setQuantity(i, val){
+    let quantity = parseInt(val);
+    if(quantity > 0 && quantity <= cart[i].stock){ cart[i].quantity = quantity; updateCart(); }
     else { alert('Jumlah tidak valid'); updateCart(); }
 }
 
 function removeItem(i){ cart.splice(i,1); updateCart(); }
 
+// ======================= TOTAL & DISKON =======================
 function calculateTotals(){
-    let subtotal = cart.reduce((sum,item)=>sum + item.qty*item.price,0);
+    let subtotal = cart.reduce((sum,item)=>sum + item.quantity*item.price,0);
     let discPerc = parseFloat($('#discountPercentage').val())||0;
     let discAmt = parseFloat($('#discountAmount').val())||0;
     let discount = discAmt + subtotal*discPerc/100;
+    if(discount > subtotal) discount = subtotal; // diskon tidak boleh lebih dari subtotal
     let total = subtotal - discount;
 
     $('#subtotalDisplay').text('Rp '+formatNumber(subtotal));
@@ -202,6 +210,7 @@ function calculateChange(){
     $('#changeAmount').text('Rp '+formatNumber(Math.max(0, payment - total)));
 }
 
+// ======================= DOCUMENT READY =======================
 $(function(){
     $('#barcodeInput').focus();
 
@@ -228,9 +237,13 @@ $(function(){
     $('#btnPay').click(processPayment);
 });
 
-// AJAX search / add product
+// ======================= SEARCH / ADD PRODUCT =======================
 function searchByBarcode(barcode){
-    $.get('{{ route("products.search.barcode") }}', { barcode, warehouse_id: $('#warehouseSelect').val(), price_tier_id: $('#priceTierSelect').val() }, function(res){
+    $.get('{{ route("pos.products.search.barcode") }}', { 
+        barcode, 
+        warehouse_id: $('#warehouseSelect').val(), 
+        price_tier_id: $('#priceTierSelect').val() 
+    }, function(res){
         if(res.success) addToCart(res.data);
         else alert('Produk tidak ditemukan');
     });
@@ -241,34 +254,25 @@ function searchByName(keyword){
         keyword: keyword,
         warehouse_id: $('#warehouseSelect').val()
     }, function(res){
-
         if(!res.success || res.data.length === 0){
-            $('#searchResults').html(
-                '<div class="list-group-item text-muted">Produk tidak ditemukan</div>'
-            );
+            $('#searchResults').html('<div class="list-group-item text-muted">Produk tidak ditemukan</div>');
             return;
         }
 
         productsCache = res.data;
-
         let html = '';
         res.data.forEach((p, index) => {
+            let price = parseFloat(p.base_price.toString().replace(/[^\d.-]/g,'')) || 0;
             html += `
-            <a href="#" class="list-group-item product-item mb-2"
-               data-index="${index}">
+            <a href="#" class="list-group-item product-item mb-2" data-index="${index}">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="product-name fw-semibold">${p.name}</div>
-                        <div class="product-price text-muted">
-                            Rp ${formatNumber(p.base_price)}
-                        </div>
+                        <div class="product-price text-muted">Rp ${formatNumber(price)}</div>
                     </div>
                     <div class="text-end">
-                        <span class="badge bg-primary badge-stock mb-1">
-                            Gudang: ${p.stock_main}
-                        </span><br>
-                        <span class="badge ${p.stock_store > 0 ? 'bg-success' : 'bg-danger'} badge-stock">
-                            Toko: ${p.stock_store}
+                        <span class="badge ${p.stock > 0 ? 'bg-success' : 'bg-danger'} badge-stock">
+                            Stok: ${p.stock}
                         </span>
                     </div>
                 </div>
@@ -287,12 +291,26 @@ function searchByName(keyword){
     });
 }
 
+// ======================= ADD TO CART =======================
 function addToCart(product){
     let item = cart.find(i=>i.product_id===product.id);
-    if(item){ if(item.qty<product.stock) item.qty++; else alert('Stok tidak mencukupi'); }
-    else cart.push({ product_id: product.id, name: product.name, price: parseFloat(product.base_price), qty:1, stock: product.stock });
+    let price = parseFloat(product.base_price.toString().replace(/[^\d.-]/g,'')) || 0;
+    let stock = parseInt(product.stock)||0;
+
+    if(item){
+        if(item.quantity < stock) item.quantity++;
+        else alert('Stok tidak mencukupi');
+    } else {
+        if(stock > 0){
+            cart.push({ product_id: product.id, name: product.name, price: price, quantity: 1, stock: stock });
+        } else {
+            alert('Stok habis');
+        }
+    }
     updateCart();
 }
+
+// ======================= PAYMENT =======================
 
 function processPayment(){
     if(cart.length===0){ alert('Keranjang kosong'); return; }

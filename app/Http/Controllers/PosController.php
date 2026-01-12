@@ -9,7 +9,7 @@ use App\Models\Warehouse;
 use App\Models\PriceTier;
 use App\Models\CashSession;
 use App\Models\Product;
-use App\Models\Barcode;    
+use App\Models\Barcode;
 
 class PosController extends Controller
 {
@@ -96,27 +96,22 @@ class PosController extends Controller
     public function searchByName(Request $request)
     {
         $keyword = $request->keyword;
-
-        $gudangUtamaId = Warehouse::where('name', 'Gudang Utama')->value('id');
-        $tokoId = Warehouse::where('name', 'Gudang Cabang')->value('id'); // SESUAI DB
+        $warehouseId = $request->warehouse_id;
 
         $products = DB::table('products as p')
-            ->leftJoin('warehouse_stocks as ws_gudang', function ($join) use ($gudangUtamaId) {
-                $join->on('p.id', '=', 'ws_gudang.product_id')
-                    ->where('ws_gudang.warehouse_id', $gudangUtamaId);
+            ->leftJoin('warehouse_stocks as ws', function ($join) use ($warehouseId) {
+                $join->on('p.id', '=', 'ws.product_id')
+                    ->where('ws.warehouse_id', $warehouseId);
             })
-            ->leftJoin('warehouse_stocks as ws_toko', function ($join) use ($tokoId) {
-                $join->on('p.id', '=', 'ws_toko.product_id')
-                    ->where('ws_toko.warehouse_id', $tokoId);
+            ->where(function ($q) use ($keyword) {
+                $q->where('p.name', 'like', "%{$keyword}%")
+                    ->orWhere('p.code', 'like', "%{$keyword}%");
             })
-            ->where('p.name', 'like', "%{$keyword}%")
-            ->orWhere('p.code', 'like', "%{$keyword}%")
             ->select(
                 'p.id',
                 'p.name',
                 'p.base_price',
-                DB::raw('COALESCE(ws_gudang.stock, 0) as stock_main'),
-                DB::raw('COALESCE(ws_toko.stock, 0) as stock_store')
+                DB::raw('COALESCE(ws.quantity, 0) as stock')
             )
             ->get();
 

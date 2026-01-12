@@ -34,7 +34,6 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->foreignId('cash_session_id')
                 ->nullable()
-                ->after('user_id')
                 ->constrained('cash_sessions')
                 ->nullOnDelete();
             $table->string('midtrans_order_id')->nullable();
