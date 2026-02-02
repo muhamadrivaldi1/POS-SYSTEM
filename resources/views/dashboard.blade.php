@@ -15,7 +15,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Today's Transactions -->
     <div class="col-md-3 mb-4">
         <div class="card text-white bg-success">
@@ -26,8 +26,8 @@
             </div>
         </div>
     </div>
-    
-    @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+
+    @if(auth()->user()->hasRole(['owner','supervisor']))
     <!-- Monthly Sales -->
     <div class="col-md-3 mb-4">
         <div class="card text-white bg-info">
@@ -38,7 +38,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Low Stock Alert -->
     <div class="col-md-3 mb-4">
         <div class="card text-white bg-warning">
@@ -50,7 +50,7 @@
         </div>
     </div>
     @else
-    <!-- My Sales Today (for kasir) -->
+    <!-- My Sales Today (Kasir) -->
     <div class="col-md-3 mb-4">
         <div class="card text-white bg-info">
             <div class="card-body">
@@ -60,7 +60,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Cash Session Status -->
     <div class="col-md-3 mb-4">
         <div class="card text-white {{ $openSession ? 'bg-success' : 'bg-secondary' }}">
@@ -68,9 +68,9 @@
                 <h6 class="card-title">Status Kas</h6>
                 <h3 class="mb-0">{{ $openSession ? 'Terbuka' : 'Tertutup' }}</h3>
                 @if($openSession)
-                <small><i class="fas fa-check-circle"></i> Sejak {{ $openSession->opened_at->format('H:i') }}</small>
+                    <small><i class="fas fa-check-circle"></i> Sejak {{ $openSession->opened_at->format('H:i') }}</small>
                 @else
-                <small><i class="fas fa-times-circle"></i> Buka sesi kas</small>
+                    <small><i class="fas fa-times-circle"></i> Buka sesi kas</small>
                 @endif
             </div>
         </div>
@@ -78,7 +78,7 @@
     @endif
 </div>
 
-@if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+@if(auth()->user()->hasRole(['owner','supervisor']))
 <!-- Top Products Today -->
 <div class="row">
     <div class="col-md-12">
@@ -133,7 +133,8 @@
                 <a href="{{ route('transactions.index') }}" class="btn btn-info me-2 mb-2">
                     <i class="fas fa-receipt"></i> Lihat Transaksi
                 </a>
-                @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+
+                @if(auth()->user()->hasRole(['owner','supervisor']))
                 <a href="{{ route('products.index') }}" class="btn btn-success me-2 mb-2">
                     <i class="fas fa-box"></i> Kelola Produk
                 </a>

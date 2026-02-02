@@ -22,11 +22,11 @@ class CashSessionController extends Controller
     {
         $openSession = CashSession::where('user_id', auth()->id())
             ->where('status', 'open')
-            ->latest()
             ->first();
 
         if ($openSession) {
-            return redirect()->route('cash-sessions.show', $openSession)
+            return redirect()
+                ->route('cash-sessions.show', $openSession)
                 ->with('warning', 'Anda masih memiliki sesi kas yang terbuka');
         }
 
@@ -36,7 +36,7 @@ class CashSessionController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'opening_balance' => 'required|numeric|min:0',
+            'opening_cash' => 'required|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -47,7 +47,6 @@ class CashSessionController extends Controller
 
         $openSession = CashSession::where('user_id', auth()->id())
             ->where('status', 'open')
-            ->latest()
             ->first();
 
         if ($openSession) {
@@ -55,11 +54,11 @@ class CashSessionController extends Controller
                 ->with('error', 'Anda masih memiliki sesi kas yang terbuka');
         }
 
-        $session = CashSession::create([
-            'user_id' => auth()->id(),
-            'opening_cash' => $request->opening_balance,
-            'opened_at' => now(),
-            'status' => 'open',
+        CashSession::create([
+            'user_id'       => auth()->id(),
+            'opening_cash'  => $request->opening_cash,
+            'opened_at'     => now(),
+            'status'        => 'open',
         ]);
 
         return redirect()->route('pos.index')
@@ -69,20 +68,28 @@ class CashSessionController extends Controller
     public function show(CashSession $cashSession)
     {
         $transactions = Transaction::where('user_id', $cashSession->user_id)
-            ->whereBetween('transaction_date', [$cashSession->opened_at, $cashSession->closed_at ?? now()])
+            ->whereBetween('transaction_date', [
+                $cashSession->opened_at,
+                $cashSession->closed_at ?? now()
+            ])
             ->where('status', 'completed')
             ->get();
 
-        $totalCash = $transactions->where('payment_method', 'cash')->sum('total');
-        $totalCard = $transactions->where('payment_method', 'card')->sum('total');
-        $totalEwallet = $transactions->where('payment_method', 'ewallet')->sum('total');
+        $totalCash     = $transactions->where('payment_method', 'cash')->sum('total');
+        $totalCard     = $transactions->where('payment_method', 'card')->sum('total');
+        $totalEwallet  = $transactions->where('payment_method', 'ewallet')->sum('total');
         $totalTransfer = $transactions->where('payment_method', 'transfer')->sum('total');
 
-        $expectedBalance = $cashSession->opening_balance + $totalCash;
+        $expectedCash = $cashSession->opening_cash + $totalCash;
 
         return view('cash_sessions.show', compact(
-            'cashSession', 'transactions', 'totalCash', 'totalCard',
-            'totalEwallet', 'totalTransfer', 'expectedBalance'
+            'cashSession',
+            'transactions',
+            'totalCash',
+            'totalCard',
+            'totalEwallet',
+            'totalTransfer',
+            'expectedCash'
         ));
     }
 
@@ -99,8 +106,8 @@ class CashSessionController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'closing_balance' => 'required|numeric|min:0',
-            'notes' => 'nullable|string',
+            'closing_cash' => 'required|numeric|min:0',
+            'notes'        => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -115,16 +122,16 @@ class CashSessionController extends Controller
             ->where('payment_method', 'cash')
             ->sum('total');
 
-        $expectedBalance = $cashSession->opening_balance + $totalCash;
-        $difference = $request->closing_balance - $expectedBalance;
+        $expectedCash = $cashSession->opening_cash + $totalCash;
+        $difference   = $request->closing_cash - $expectedCash;
 
         $cashSession->update([
-            'closing_balance' => $request->closing_balance,
-            'expected_balance' => $expectedBalance,
-            'difference' => $difference,
-            'closed_at' => now(),
-            'status' => 'closed',
-            'notes' => $request->notes,
+            'closing_cash'  => $request->closing_cash,
+            'expected_cash' => $expectedCash,
+            'difference'    => $difference,
+            'closed_at'     => now(),
+            'status'        => 'closed',
+            'notes'         => $request->notes,
         ]);
 
         return redirect()->route('cash-sessions.index')

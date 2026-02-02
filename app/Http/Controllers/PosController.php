@@ -9,7 +9,6 @@ use App\Models\Warehouse;
 use App\Models\PriceTier;
 use App\Models\CashSession;
 use App\Models\Product;
-use App\Models\Barcode;
 
 class PosController extends Controller
 {
@@ -43,14 +42,14 @@ class PosController extends Controller
     }
 
     /**
-     * 🔍 Cari / Scan Barcode
+     * 🔍 Scan Barcode
      */
     public function searchByBarcode(Request $request)
     {
         $barcode = $request->barcode;
 
         $gudangUtamaId = Warehouse::where('name', 'Gudang Utama')->value('id');
-        $tokoId = Warehouse::where('name', 'Toko')->value('id'); // kalau ada
+        $tokoId = Warehouse::where('name', 'Toko')->value('id');
 
         $product = DB::table('products as p')
             ->leftJoin('warehouse_stocks as ws_gudang', function ($join) use ($gudangUtamaId) {
@@ -85,39 +84,47 @@ class PosController extends Controller
                 'base_price' => $product->base_price,
                 'gudang' => (int) $product->stock_gudang,
                 'toko' => (int) $product->stock_toko,
-                'stock' => (int) $product->stock_toko
+                'stock' => (int) $product->stock_toko // stok utama POS
             ]
         ]);
     }
 
     /**
-     * 🔍 Cari berdasarkan nama / kode
+     * 🔍 Cari berdasarkan nama / kode (MANUAL SEARCH)
      */
-    public function searchByName(Request $request)
-    {
-        $keyword = $request->keyword;
-        $warehouseId = $request->warehouse_id;
+        public function searchByName(Request $request)
+{
+    $keyword = $request->keyword;
+    $warehouseId = $request->warehouse_id;
 
-        $products = DB::table('products as p')
-            ->leftJoin('warehouse_stocks as ws', function ($join) use ($warehouseId) {
-                $join->on('p.id', '=', 'ws.product_id')
-                    ->where('ws.warehouse_id', $warehouseId);
-            })
-            ->where(function ($q) use ($keyword) {
-                $q->where('p.name', 'like', "%{$keyword}%")
-                    ->orWhere('p.code', 'like', "%{$keyword}%");
-            })
-            ->select(
-                'p.id',
-                'p.name',
-                'p.base_price',
-                DB::raw('COALESCE(ws.quantity, 0) as stock')
-            )
-            ->get();
+    $products = DB::table('products as p')
+        ->leftJoin('warehouse_stocks as ws', function ($join) use ($warehouseId) {
+            $join->on('p.id', '=', 'ws.product_id');
 
-        return response()->json([
-            'success' => true,
-            'data' => $products
-        ]);
-    }
+            if ($warehouseId) {
+                $join->where('ws.warehouse_id', $warehouseId);
+            }
+        })
+        ->where(function ($q) use ($keyword) {
+            $q->where('p.name', 'like', "%{$keyword}%")
+              ->orWhere('p.code', 'like', "%{$keyword}%");
+        })
+        ->select(
+            'p.id',
+            'p.code',
+            'p.name',
+            'p.base_price',
+            DB::raw('COALESCE(ws.stock, 0) as stock')
+        )
+        ->orderBy('p.name')
+        ->limit(20)
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $products
+    ]);
+}
+
+
 }

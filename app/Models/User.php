@@ -1,87 +1,51 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
-        'username', 'email', 'password', 'full_name', 'role', 'status'
+        'full_name',
+        'email',
+        'password',
+        'role',
+        'status',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
-
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        // 'password' => 'hashed', Laravel 10+ auto hash password
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
-    // Relationships
-    public function transactions()
+    /* ================= ROLE CHECK ================= */
+
+    public function isOwner(): bool
     {
-        return $this->hasMany(Transaction::class);
+        return $this->role === 'owner';
     }
 
-    public function cashSessions()
-    {
-        return $this->hasMany(CashSession::class);
-    }
-
-    public function purchases()
-    {
-        return $this->hasMany(Purchase::class);
-    }
-
-    public function stockMutations()
-    {
-        return $this->hasMany(StockMutation::class);
-    }
-
-    // Role Check Methods
-    public function isAdmin()
-    {
-        return $this->role === 'admin';
-    }
-
-    public function isSupervisor()
+    public function isSupervisor(): bool
     {
         return $this->role === 'supervisor';
     }
 
-    public function isKasir()
+    public function isKasir(): bool
     {
         return $this->role === 'kasir';
     }
 
-    // Check if user has specific role
-    public function hasRole($role)
+    /**
+     * hasRole('owner')
+     * hasRole(['owner','supervisor'])
+     */
+    public function hasRole(string|array $roles): bool
     {
-        if (is_array($role)) {
-            return in_array($this->role, $role);
-        }
-        return $this->role === $role;
-    }
-
-    // Check if user has any of the given roles
-    public function hasAnyRole(array $roles)
-    {
-        return in_array($this->role, $roles);
-    }
-
-    // Scope for active users
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
-    }
-
-    // Scope for specific role
-    public function scopeRole($query, $role)
-    {
-        return $query->where('role', $role);
+        return in_array($this->role, (array) $roles, true);
     }
 }

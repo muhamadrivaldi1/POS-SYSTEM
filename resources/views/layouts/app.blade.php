@@ -165,7 +165,7 @@
                 </a>
             </li>
             
-            @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+            @if(auth()->user()->hasRole(['owner','supervisor']))
             <li>
                 <a href="{{ route('products.index') }}" class="{{ request()->routeIs('products.*') ? 'active' : '' }}">
                     <i class="fas fa-box"></i> Produk
@@ -191,7 +191,7 @@
                 </a>
             </li>
             
-            @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+            @if(auth()->user()->hasRole(['owner','supervisor']))
             <li>
                 <a href="{{ route('categories.index') }}" class="{{ request()->routeIs('categories.*') ? 'active' : '' }}">
                     <i class="fas fa-tags"></i> Kategori
@@ -217,7 +217,7 @@
             </li>
             @endif
             
-            @if(auth()->user()->isAdmin())
+            @if(auth()->user()->hasRole(['owner','supervisor']))
             <li>
                 <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
                     <i class="fas fa-users"></i> User Management

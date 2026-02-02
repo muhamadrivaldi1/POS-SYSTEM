@@ -11,24 +11,25 @@ class Transaction extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'transaction_number',
-        'user_id',
-        'warehouse_id',
-        'price_tier_id',
-        'transaction_date',
-        'subtotal',
-        'discount_percentage',
-        'discount_amount',
-        'voucher_code',
-        'tax_percentage',
-        'tax_amount',
-        'total',
-        'payment_method',
-        'payment_amount',
-        'change_amount',
-        'status',
-        'notes'
-    ];
+    'warehouse_id',
+    'price_tier_id',
+    'transaction_date',
+    'subtotal',
+    'discount_percentage',
+    'discount_amount',
+    'voucher_code',
+    'tax_percentage',
+    'tax_amount',
+    'total',
+    'payment_method',
+    'payment_amount',
+    'change_amount',
+    'status',
+    'notes',
+    'stock_override',
+    'approved_by',
+];
+
 
     protected $casts = [
         'transaction_date' => 'datetime',

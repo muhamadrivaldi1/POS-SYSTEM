@@ -14,9 +14,10 @@
                 <form action="{{ route('cash-sessions.store') }}" method="POST">
                     @csrf
                     <div class="mb-3">
-                        <label for="opening_balance" class="form-label">Saldo Awal</label>
-                        <input type="number" name="opening_balance" id="opening_balance" class="form-control" value="{{ old('opening_balance', 0) }}" required>
-                        @error('opening_balance')
+                        <label for="opening_cash" class="form-label">Saldo Awal</label>
+                        <input type="number" name="opening_cash" id="opening_cash" class="form-control" 
+                        value="{{ old('opening_cash', 0) }}" required>
+                        @error('opening_cash')
                             <small class="text-danger">{{ $message }}</small>
                         @enderror
                     </div>
